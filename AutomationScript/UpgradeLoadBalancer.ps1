@@ -1,68 +1,101 @@
-#PROVIDED AS WEBHOOK ONCE READY FOR PRODUCTION USE
+param
+(
+    [Parameter (Mandatory = $false)]
+    [object] $WebhookData
+)
+if ($WebhookData) {
+    $loadBalancerObj = (ConvertFrom-Json -InputObject $WebhookData.RequestBody)
+    $rgName = $loadBalancerObj.ResourceGroup
+    $lbName = $loadBalancerObj.RowKey
+    $subscriptionId = $loadBalancerObj.PartitionKey
+    $connectionName = "AzureRunAsConnection"
+    try {
+        # Get the connection "AzureRunAsConnection "
+        $servicePrincipalConnection = Get-AutomationConnection -Name $connectionName         
 
-$rgName = ""
-$lbName = ""
-
-
-$basicLB = Get-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName
-
-if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) { 
-    #$checkforPublicIP publicIpAvailable
-    $checkforPublicIP = $basicLb.FrontendIpConfigurations | Where-Object { $_.PublicIpAddress -ne $null }
-    if ($null -eq $checkforPublicIP) {
-        #Store the Basic LB Config
-
-        #Delete the Basic LB
-        Remove-AzLoadBalancer -Name $lbName -ResourceGroupName $rgName -Force
-
-        #Create New Standard LB
-        $stdLb = New-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName -Location $basicLB.Location -Tag $basicLB.Tag -Sku Standard
-
-        #create Front end configs
-        foreach ($frontendConfig in $basicLB.FrontendIpConfigurations) {
-            $feip = New-AzLoadBalancerFrontendIpConfig -Name $frontendConfig.Name -PrivateIpAddress $frontendConfig.PrivateIpAddress -SubnetId $frontendConfig.Subnet.Id
-            $stdLb | Add-AzLoadBalancerFrontendIpConfig -Name $frontendConfig.Name -PrivateIpAddress $frontendConfig.PrivateIpAddress -SubnetId $frontendConfig.Subnet.Id | Set-AzLoadBalancer
+        "Logging in to Azure..."
+        Add-AzAccount `
+            -ServicePrincipal `
+            -TenantId $servicePrincipalConnection.TenantId `
+            -ApplicationId $servicePrincipalConnection.ApplicationId `
+            -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint 
+    }
+    catch {
+        if (!$servicePrincipalConnection) {
+            $ErrorMessage = "Connection $connectionName not found."
+            throw $ErrorMessage
         }
-
-        #Create BackendPools
-        foreach ($backendpool in $basicLB.BackendAddressPools) {
-            $stdLb | Add-AzLoadBalancerBackendAddressPoolConfig -Name $backendpool.Name | Set-AzLoadBalancer
+        else {
+            Write-Error -Message $_.Exception
+            throw $_.Exception
         }
+    }
 
-        #create Probes
-        foreach ($probe in $basicLB.Probes) {
-            if ($probe.RequestPath) {
-                $stdLb | Add-AzLoadBalancerProbeConfig -Name $probe.Name -RequestPath $probe.RequestPath -Protocol $probe.Protocol -Port $probe.Port -IntervalInSeconds $probe.IntervalInSeconds -ProbeCount $probe.NumberOfProbes | Set-AzLoadBalancer
+    # Set Subscription Context
+    Set-AzContext -SubscriptionId $subscriptionId
+    # Get the Basic Load Balancer
+    $basicLB = Get-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName
+
+    Write-Output $basicLB.Name
+    Write-Output $basicLB.Id
+
+    if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) { 
+        #$checkforPublicIP publicIpAvailable
+        $checkforPublicIP = $basicLb.FrontendIpConfigurations | Where-Object { $_.PublicIpAddress -ne $null }
+        if ($null -eq $checkforPublicIP) {
+            #Store the Basic LB Config
+
+            #Delete the Basic LB
+            Remove-AzLoadBalancer -Name $lbName -ResourceGroupName $rgName -Force
+
+            #Create New Standard LB
+            $stdLb = New-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName -Location $basicLB.Location -Tag $basicLB.Tag -Sku Standard
+
+            #create Front end configs
+            foreach ($frontendConfig in $basicLB.FrontendIpConfigurations) {
+                $feip = New-AzLoadBalancerFrontendIpConfig -Name $frontendConfig.Name -PrivateIpAddress $frontendConfig.PrivateIpAddress -SubnetId $frontendConfig.Subnet.Id
+                $stdLb | Add-AzLoadBalancerFrontendIpConfig -Name $frontendConfig.Name -PrivateIpAddress $frontendConfig.PrivateIpAddress -SubnetId $frontendConfig.Subnet.Id | Set-AzLoadBalancer
             }
-            else {
-                $stdLb | Add-AzLoadBalancerProbeConfig -Name $probe.Name  -Protocol $probe.Protocol -Port $probe.Port -IntervalInSeconds $probe.IntervalInSeconds -ProbeCount $probe.NumberOfProbes | Set-AzLoadBalancer
+
+            #Create BackendPools
+            foreach ($backendpool in $basicLB.BackendAddressPools) {
+                $stdLb | Add-AzLoadBalancerBackendAddressPoolConfig -Name $backendpool.Name | Set-AzLoadBalancer
             }
-        }
 
-        # Set LB Rules
-        foreach ($rule in $basicLB.LoadBalancingRules) {
-            #Get the FrontendConfig of the existing rule
+            #create Probes
+            foreach ($probe in $basicLB.Probes) {
+                if ($probe.RequestPath) {
+                    $stdLb | Add-AzLoadBalancerProbeConfig -Name $probe.Name -RequestPath $probe.RequestPath -Protocol $probe.Protocol -Port $probe.Port -IntervalInSeconds $probe.IntervalInSeconds -ProbeCount $probe.NumberOfProbes | Set-AzLoadBalancer
+                }
+                else {
+                    $stdLb | Add-AzLoadBalancerProbeConfig -Name $probe.Name  -Protocol $probe.Protocol -Port $probe.Port -IntervalInSeconds $probe.IntervalInSeconds -ProbeCount $probe.NumberOfProbes | Set-AzLoadBalancer
+                }
+            }
 
-            $existingFrontEndIPConfig = $rule.FrontendIPConfiguration.Id 
-            $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
-            $bePoolName = $rule.BackendAddressPool.Id.Split("/")[10]
-            $stdbepool = $stdLb.BackendAddressPools | Where-Object { $_.Name -eq $bePoolName }
+            # Set LB Rules
+            foreach ($rule in $basicLB.LoadBalancingRules) {
+                #Get the FrontendConfig of the existing rule
 
-            $probe = Get-AzLoadBalancerProbeConfig -LoadBalancer $stdLb -Name $rule.Probe.Id.Split("/")[10]
+                $existingFrontEndIPConfig = $rule.FrontendIPConfiguration.Id 
+                $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
+                $bePoolName = $rule.BackendAddressPool.Id.Split("/")[10]
+                $stdbepool = $stdLb.BackendAddressPools | Where-Object { $_.Name -eq $bePoolName }
+
+                $probe = Get-AzLoadBalancerProbeConfig -LoadBalancer $stdLb -Name $rule.Probe.Id.Split("/")[10]
 
 
-            if ($rule.EnableFloatingIP) {
-                $stdLb | Add-AzLoadBalancerRuleConfig -Name $rule.Name -FrontendIPConfiguration $feip -Protocol $rule.Protocol -FrontendPort $rule.FrontendPort -BackendPort $rule.BackendPort -LoadDistribution $rule.LoadDistribution -IdleTimeoutInMinutes $rule.IdleTimeoutInMinutes -EnableFloatingIP -Probe $probe -BackendAddressPool $stdbepool
+                if ($rule.EnableFloatingIP) {
+                    $stdLb | Add-AzLoadBalancerRuleConfig -Name $rule.Name -FrontendIPConfiguration $feip -Protocol $rule.Protocol -FrontendPort $rule.FrontendPort -BackendPort $rule.BackendPort -LoadDistribution $rule.LoadDistribution -IdleTimeoutInMinutes $rule.IdleTimeoutInMinutes -EnableFloatingIP -Probe $probe -BackendAddressPool $stdbepool
                 
-            }
-            else {
-                $stdLb | Add-AzLoadBalancerRuleConfig -Name $rule.Name -FrontendIPConfiguration $feip -Protocol $rule.Protocol -FrontendPort $rule.FrontendPort -BackendPort $rule.BackendPort -LoadDistribution $rule.LoadDistribution -IdleTimeoutInMinutes $rule.IdleTimeoutInMinutes -Probe $probe -BackendAddressPool $stdbepool
-            }
+                }
+                else {
+                    $stdLb | Add-AzLoadBalancerRuleConfig -Name $rule.Name -FrontendIPConfiguration $feip -Protocol $rule.Protocol -FrontendPort $rule.FrontendPort -BackendPort $rule.BackendPort -LoadDistribution $rule.LoadDistribution -IdleTimeoutInMinutes $rule.IdleTimeoutInMinutes -Probe $probe -BackendAddressPool $stdbepool
+                }
             
-            $stdLb | Set-AzLoadBalancer
-        }
+                $stdLb | Set-AzLoadBalancer
+            }
 
-        <# TO DO FOR VMSS
+            <# TO DO FOR VMSS
         foreach ($natPool in $basicLB.InboundNatPools) {
             $existingFrontEndIPConfig = $rule.FrontendIPConfiguration.Id 
             $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
@@ -78,36 +111,38 @@ if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) {
         }
         #>
 
-        # SET Inbound NAT Rules
-        foreach ($natRule in $basicLB.InboundNatRules) {
-            $existingFrontEndIPConfig = $natRule.FrontendIPConfiguration.Id 
+            # SET Inbound NAT Rules
+            foreach ($natRule in $basicLB.InboundNatRules) {
+                $existingFrontEndIPConfig = $natRule.FrontendIPConfiguration.Id 
 
-            $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
+                $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
 
-            if ($natRule.EnableFloatingIP) {
-                $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort 3350 -EnableFloatingIP -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
+                if ($natRule.EnableFloatingIP) {
+                    $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort 3350 -EnableFloatingIP -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
+                }
+                else {
+                    $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort 3350 -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
+                }
             }
-            else {
-                $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort 3350 -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
-            }
-        }
 
-        $stdLb = Get-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName
+            $stdLb = Get-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName
 
-        # Update the NIC IP Configurations for the existing VMs 
-        foreach ($bepool in $basicLB.BackendAddressPools) {
-            $stdbepool = $stdLb.BackendAddressPools | Where-Object { $_.Name -eq $bepool.Name }
-            foreach ($beip in $bepool.BackendIpConfigurations) {
-                $nic = Get-AzNetworkInterface -ResourceGroupName $beip.Id.Split("/")[4] -Name $beip.Id.Split("/")[8]
-                $nicIPConfig = Get-AzNetworkInterfaceIpConfig -Name $beip.Id.Split("/")[10] -NetworkInterface $nic
+            # Update the NIC IP Configurations for the existing VMs 
+            foreach ($bepool in $basicLB.BackendAddressPools) {
+                $stdbepool = $stdLb.BackendAddressPools | Where-Object { $_.Name -eq $bepool.Name }
+                foreach ($beip in $bepool.BackendIpConfigurations) {
+                    $nic = Get-AzNetworkInterface -ResourceGroupName $beip.Id.Split("/")[4] -Name $beip.Id.Split("/")[8]
+                    $nicIPConfig = Get-AzNetworkInterfaceIpConfig -Name $beip.Id.Split("/")[10] -NetworkInterface $nic
 
-                $natRuleforNic = $basicLB.InboundNatRules | Where-Object { $_.BackendIPConfiguration.id -eq $nicIPConfig.id }
+                    $natRuleforNic = $basicLB.InboundNatRules | Where-Object { $_.BackendIPConfiguration.id -eq $nicIPConfig.id }
 
-                ($nic.IpConfigurations | Where-Object { $_.Id -eq $beip.Id }).LoadBalancerBackendAddressPools = $stdbepool
-                ($nic.IpConfigurations | Where-Object { $_.Id -eq $beip.Id }).LoadBalancerInboundNatRules = $natRuleforNic
+                    ($nic.IpConfigurations | Where-Object { $_.Id -eq $beip.Id }).LoadBalancerBackendAddressPools = $stdbepool
+                    ($nic.IpConfigurations | Where-Object { $_.Id -eq $beip.Id }).LoadBalancerInboundNatRules = $natRuleforNic
 
-                Set-AzNetworkInterface -NetworkInterface $nic
+                    Set-AzNetworkInterface -NetworkInterface $nic
+                }
             }
         }
     }
 }
+

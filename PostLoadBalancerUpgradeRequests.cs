@@ -13,7 +13,7 @@ namespace Azure.Network.LoadBalancer
 {
     public static class PostLoadBalancerUpgradeRequests
     {
-        //[FunctionName("PostLoadBalancerUpgradeRequests")]
+        [FunctionName("PostLoadBalancerUpgradeRequests")]
         public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log,[Table("dselbtable")] CloudTable loadbalancerconfigTable, [Queue("upgraderequests")] ICollector<UpdateLoadBalancerEntity> myQueue)
         {
            

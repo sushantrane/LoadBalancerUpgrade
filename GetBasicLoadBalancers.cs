@@ -13,10 +13,28 @@ namespace Azure.Network.LoadBalancer
 {
     public static class GetBasicLoadBalancers
     {
-        //[FunctionName("GetBasicLoadBalancers")]
+        [FunctionName("GetBasicLoadBalancers")]
         public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log, [Table("dselbtable")] CloudTable loadbalancerconfigTable)
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
+
+
+            // query all rows
+            var tableQuery = new TableQuery<UpdateLoadBalancerEntity>();
+            var result = await loadbalancerconfigTable.ExecuteQuerySegmentedAsync(tableQuery, null);
+
+            // Create the batch operation.
+            TableBatchOperation batchDeleteOperation = new TableBatchOperation();
+
+            foreach (var row in result)
+            {
+                batchDeleteOperation.Delete(row);
+            }
+
+            // Execute the batch operation.
+            await loadbalancerconfigTable.ExecuteBatchAsync(batchDeleteOperation);
+
+            //Get Token
             string token = AuthHelper.GetTokenAsync().Result;
             log.LogInformation($"Token Received: {token}");
 
@@ -35,7 +53,9 @@ namespace Azure.Network.LoadBalancer
             requestBodyObj.Add("options", options);
             string resourceGraphUri = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2018-09-01-preview";
             List<string> expressRouteConnectedSubscriptions = new List<string>();
-            expressRouteConnectedSubscriptions.Add("3f823603-dbe6-4aaa-82d4-44c08fa053e6");
+            //TEST CASE
+            string subId = Environment.GetEnvironmentVariable("TestSubscriptionID", EnvironmentVariableTarget.Process);
+            expressRouteConnectedSubscriptions.Add(subId);
             //Commenting for test
             // ResourceGraphResponse resourcesubs = ResilientRestClient.PostAsync<ResourceGraphResponse>(resourceGraphUri, token, requestBodyObj).Result;
             // foreach (List<string> row in resourcesubs.data.rows)
