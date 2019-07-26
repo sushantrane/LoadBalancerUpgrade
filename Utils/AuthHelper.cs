@@ -12,9 +12,9 @@ namespace Azure.Network.LoadBalancer.Utils
         public static async Task<string> GetTokenAsync()
         {
             //Use Environment Variable
-            string clientId =  Environment.GetEnvironmentVariable("ClientId", EnvironmentVariableTarget.Process);
-            string clientSecret =  Environment.GetEnvironmentVariable("ClientSecret", EnvironmentVariableTarget.Process);
-            string tenantId =  Environment.GetEnvironmentVariable("TenantId", EnvironmentVariableTarget.Process);
+            string clientId =  Environment.GetEnvironmentVariable("DSEClientId", EnvironmentVariableTarget.Process);
+            string clientSecret =  Environment.GetEnvironmentVariable("DSEClientSecret", EnvironmentVariableTarget.Process);
+            string tenantId =  Environment.GetEnvironmentVariable("DSETenantId", EnvironmentVariableTarget.Process);
             ClientCredential cc = new ClientCredential(clientId, clientSecret);
             var context = new AuthenticationContext("https://login.windows.net/" + tenantId);
             var result = await context.AcquireTokenAsync("https://management.azure.com/", cc);

@@ -15,9 +15,9 @@ namespace Azure.Network.LoadBalancer
             log.LogInformation($"C# Queue trigger function processed: {myQueueItem.RowKey}");
             //TO DO
             //STORE THE CONFIG IN THE JSON FORMAT (EITHER BLOB OR COSMOS)
-            // string runbookUri = Environment.GetEnvironmentVariable("WebHookUri", EnvironmentVariableTarget.Process);
-            // dynamic response = ResilientRestClient.PostAsync<dynamic>(runbookUri, null, myQueueItem).Result;
-            // log.LogInformation($"Job Id = {response.JobIds}");
+            string runbookUri = Environment.GetEnvironmentVariable("WebHookUri", EnvironmentVariableTarget.Process);
+            dynamic response = ResilientRestClient.PostAsync<dynamic>(runbookUri, null, myQueueItem).Result;
+            log.LogInformation($"Job Id = {response.JobIds}");
         }
     }
 }

@@ -13,8 +13,8 @@ namespace Azure.Network.LoadBalancer
 {
     public static class PostLoadBalancerUpgradeRequests
     {
-        [FunctionName("PostLoadBalancerUpgradeRequests")]
-        public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log,[Table("loadbalancerconfig")] CloudTable loadbalancerconfigTable, [Queue("upgraderequests")] ICollector<UpdateLoadBalancerEntity> myQueue)
+        //[FunctionName("PostLoadBalancerUpgradeRequests")]
+        public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log,[Table("dselbtable")] CloudTable loadbalancerconfigTable, [Queue("upgraderequests")] ICollector<UpdateLoadBalancerEntity> myQueue)
         {
            
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
@@ -28,7 +28,7 @@ namespace Azure.Network.LoadBalancer
 
             } while (tabletoken != null);
 
-
+            // REMOVE AFTER TEST SCENARIOS
             List<string> subscriptionsIds = new List<string>
             {
                 Environment.GetEnvironmentVariable("TestSubscriptionID", EnvironmentVariableTarget.Process),

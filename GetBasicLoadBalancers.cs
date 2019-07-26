@@ -13,8 +13,8 @@ namespace Azure.Network.LoadBalancer
 {
     public static class GetBasicLoadBalancers
     {
-       // [FunctionName("GetBasicLoadBalancers")]
-        public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log, [Table("loadbalancerconfig")] CloudTable loadbalancerconfigTable)
+        //[FunctionName("GetBasicLoadBalancers")]
+        public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log, [Table("dselbtable")] CloudTable loadbalancerconfigTable)
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
             string token = AuthHelper.GetTokenAsync().Result;
@@ -24,6 +24,7 @@ namespace Azure.Network.LoadBalancer
             Subscriptions subscriptions = await ResilientRestClient.GetAsync<Subscriptions>(subscriptionsUri, token);
             log.LogInformation($"Subs Received");
 
+            //Query SubscriptionIDs which has Gateway Connections
             string query = "where type =~ 'microsoft.network/connections'| distinct subscriptionId ";
             Dictionary<string, int> options = new Dictionary<string, int>();
             options["$skip"] = 0;
@@ -34,21 +35,23 @@ namespace Azure.Network.LoadBalancer
             requestBodyObj.Add("options", options);
             string resourceGraphUri = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2018-09-01-preview";
             List<string> expressRouteConnectedSubscriptions = new List<string>();
+            expressRouteConnectedSubscriptions.Add("3f823603-dbe6-4aaa-82d4-44c08fa053e6");
+            //Commenting for test
+            // ResourceGraphResponse resourcesubs = ResilientRestClient.PostAsync<ResourceGraphResponse>(resourceGraphUri, token, requestBodyObj).Result;
+            // foreach (List<string> row in resourcesubs.data.rows)
+            // {
+            //     expressRouteConnectedSubscriptions.Add(row[0]);
+            // }
+            // log.LogInformation($"The number of subs are {expressRouteConnectedSubscriptions.Count}");
 
-            ResourceGraphResponse resourcesubs = ResilientRestClient.PostAsync<ResourceGraphResponse>(resourceGraphUri, token, requestBodyObj).Result;
-            foreach (List<string> row in resourcesubs.data.rows)
-            {
-                expressRouteConnectedSubscriptions.Add(row[0]);
-            }
-            log.LogInformation($"The number of subs are {expressRouteConnectedSubscriptions.Count}");
+            //TODO ADD Logic to clear the table or after automation job completion trigger an update to remove the upgraded LB from table
 
-
-            //NOW for Load Balancers
+            //Query for Load Balancers
             string lbquery = "where type =~ 'Microsoft.Network/loadbalancers'| where tostring(sku.name) =='Basic' | project id, subscriptionId, resourceGroup, name, location";
             Dictionary<string, int> lboptions = new Dictionary<string, int>();
             options["$skip"] = 0;
             Dictionary<string, object> lbrequestBodyObj = new Dictionary<string, object>();
-            //List<string> subscriptionIds = subscriptions.value.Select(subs => subs.subscriptionId).ToList();
+
             lbrequestBodyObj.Add("subscriptions", expressRouteConnectedSubscriptions);
             lbrequestBodyObj.Add("query", lbquery);
             lbrequestBodyObj.Add("options", lboptions);
