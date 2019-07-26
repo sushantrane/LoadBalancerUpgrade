@@ -256,42 +256,5 @@ namespace Azure.Network.LoadBalancer.Utils
 
             return response.IsSuccessStatusCode;
         }
-
-
-        // public async Task<TReturnMessage> PutAsync<TReturnMessage>(string path, string token = null, object dataObject = null) where TReturnMessage : class, new()
-        // {
-        //     var result = string.Empty;
-
-        //     var uri = new Uri(path);
-        //     _client.DefaultRequestHeaders.Accept.Clear();
-        //     if(token != null)
-        //     {
-        //         _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        //         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        //     }
-
-        //     var content = dataObject != null ? JsonConvert.SerializeObject(dataObject) : "{}";
-
-        //     // Execute delegatge. In the event of a retry, this block will re-execute.
-        //     var httpResponse = await HttpInvoker(async () =>
-        //     {
-        //         var response =
-        //             await _client.PutAsync(uri, new StringContent(content, Encoding.UTF8, "application/json"));
-        //         response.EnsureSuccessStatusCode();
-
-        //         if (!response.IsSuccessStatusCode)
-        //         {
-        //             var ex = new HttpRequestException($"{response.StatusCode} -- {response.ReasonPhrase}");
-        //             // Stuff the Http StatusCode in the Data collection with key 'StatusCode'
-        //             ex.Data.Add("StatusCode", response.StatusCode);
-        //             throw ex;
-        //         }
-
-        //         result = await response.Content.ReadAsStringAsync();
-        //         return response;
-        //     });
-
-        //     return JsonConvert.DeserializeObject<TReturnMessage>(result);
-        // }
     }
 }
