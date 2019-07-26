@@ -6,7 +6,7 @@ $lbName = ""
 
 $basicLB = Get-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName
 
-if ($basicLB.Sku.Name -eq "Basic") { 
+if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) { 
     #$checkforPublicIP publicIpAvailable
     $checkforPublicIP = $basicLb.FrontendIpConfigurations | Where-Object { $_.PublicIpAddress -ne $null }
     if ($null -eq $checkforPublicIP) {
@@ -61,6 +61,7 @@ if ($basicLB.Sku.Name -eq "Basic") {
             $stdLb | Set-AzLoadBalancer
         }
 
+        <# TO DO FOR VMSS
         foreach ($natPool in $basicLB.InboundNatPools) {
             $existingFrontEndIPConfig = $rule.FrontendIPConfiguration.Id 
             $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
@@ -74,6 +75,7 @@ if ($basicLB.Sku.Name -eq "Basic") {
             $stdLb | Set-AzLoadBalancer
             
         }
+        #>
 
         foreach ($natRule in $basicLB.InboundNatRules) {
             $existingFrontEndIPConfig = $natRule.FrontendIPConfiguration.Id 
