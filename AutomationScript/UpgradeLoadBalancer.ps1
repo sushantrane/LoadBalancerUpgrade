@@ -39,6 +39,7 @@ if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) {
             }
         }
 
+        # Set LB Rules
         foreach ($rule in $basicLB.LoadBalancingRules) {
             #Get the FrontendConfig of the existing rule
 
@@ -77,6 +78,7 @@ if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) {
         }
         #>
 
+        # SET Inbound NAT Rules
         foreach ($natRule in $basicLB.InboundNatRules) {
             $existingFrontEndIPConfig = $natRule.FrontendIPConfiguration.Id 
 
@@ -92,7 +94,7 @@ if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) {
 
         $stdLb = Get-AzLoadBalancer -ResourceGroupName $rgName -Name $lbName
 
-        #Get all the NICs in BEPools
+        # Update the NIC IP Configurations for the existing VMs 
         foreach ($bepool in $basicLB.BackendAddressPools) {
             $stdbepool = $stdLb.BackendAddressPools | Where-Object { $_.Name -eq $bepool.Name }
             foreach ($beip in $bepool.BackendIpConfigurations) {
@@ -105,7 +107,6 @@ if (($basicLB.Sku.Name -eq "Basic") -and !($basicLB.InboundNatPools)) {
                 ($nic.IpConfigurations | Where-Object { $_.Id -eq $beip.Id }).LoadBalancerInboundNatRules = $natRuleforNic
 
                 Set-AzNetworkInterface -NetworkInterface $nic
-
             }
         }
     }
