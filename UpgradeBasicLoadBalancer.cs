@@ -9,7 +9,7 @@ namespace Azure.Network.LoadBalancer
 {
     public static class UpgradeBasicLoadBalancer
     {
-        [FunctionName("UpgradeBasicLoadBalancer")]
+        //[FunctionName("UpgradeBasicLoadBalancer")]
         public static void Run([QueueTrigger("upgraderequests", Connection = "AzureWebJobsStorage")]UpdateLoadBalancerEntity myQueueItem, ILogger log)
         {
             log.LogInformation($"C# Queue trigger function processed: {myQueueItem.RowKey}");
@@ -18,6 +18,9 @@ namespace Azure.Network.LoadBalancer
             string runbookUri = Environment.GetEnvironmentVariable("WebHookUri", EnvironmentVariableTarget.Process);
             dynamic response = ResilientRestClient.PostAsync<dynamic>(runbookUri, null, myQueueItem).Result;
             log.LogInformation($"Job Id = {response.JobIds}");
+
+            //TODO
+            //Update the Table Flag for the LB for no further interaction or Delete the LB from the table
         }
     }
 }

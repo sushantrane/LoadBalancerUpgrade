@@ -44,7 +44,7 @@ if ($WebhookData) {
         $checkforPublicIP = $basicLb.FrontendIpConfigurations | Where-Object { $_.PublicIpAddress -ne $null }
         if ($null -eq $checkforPublicIP) {
             #Store the Basic LB Config
-
+            
             #Delete the Basic LB
             Remove-AzLoadBalancer -Name $lbName -ResourceGroupName $rgName -Force
 
@@ -118,10 +118,10 @@ if ($WebhookData) {
                 $feip = Get-AzLoadBalancerFrontendIpConfig -LoadBalancer $stdLb -Name $existingFrontEndIPConfig.Split("/")[10]
 
                 if ($natRule.EnableFloatingIP) {
-                    $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort 3350 -EnableFloatingIP -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
+                    $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort $natRule.BackendPort -EnableFloatingIP -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
                 }
                 else {
-                    $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort 3350 -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
+                    $stdLb | Add-AzLoadBalancerInboundNatRuleConfig -Name $natRule.Name -FrontendIPConfiguration $feip -Protocol $natRule.Protocol -FrontendPort $natRule.FrontendPort -BackendPort $natRule.BackendPort -IdleTimeoutInMinutes $natRule.IdleTimeoutInMinutes | Set-AzLoadBalancer
                 }
             }
 

@@ -13,7 +13,7 @@ namespace Azure.Network.LoadBalancer
 {
     public static class PostLoadBalancerUpgradeRequests
     {
-        [FunctionName("PostLoadBalancerUpgradeRequests")]
+        //[FunctionName("PostLoadBalancerUpgradeRequests")]
         public static async Task Run([TimerTrigger("0 */1 * * * *")]TimerInfo myTimer, ILogger log,[Table("dselbtable")] CloudTable loadbalancerconfigTable, [Queue("upgraderequests")] ICollector<UpdateLoadBalancerEntity> myQueue)
         {
            
@@ -34,7 +34,15 @@ namespace Azure.Network.LoadBalancer
                 Environment.GetEnvironmentVariable("TestSubscriptionID", EnvironmentVariableTarget.Process),
             };
 
-            List<UpdateLoadBalancerEntity> basicLbs = lbs.Where(e => (subscriptionsIds.Contains(e.PartitionKey))).ToList();
+
+            List<string> resourceGroups = new List<string>
+            {
+                Environment.GetEnvironmentVariable("TestResourceGroup", EnvironmentVariableTarget.Process)
+            };
+
+            string lbName = Environment.GetEnvironmentVariable("TestLoadBalancerName", EnvironmentVariableTarget.Process);
+            //List<UpdateLoadBalancerEntity> basicLbs = lbs.Where(e => ((subscriptionsIds.Contains(e.PartitionKey) && resourceGroups.Contains(e.ResourceGroup)))).ToList();
+            List<UpdateLoadBalancerEntity> basicLbs = lbs.Where(e => ((subscriptionsIds.Contains(e.PartitionKey) && resourceGroups.Contains(e.ResourceGroup)) && e.RowKey==lbName)).ToList();
             foreach (UpdateLoadBalancerEntity lb in basicLbs)
             {
                 myQueue.Add(lb);

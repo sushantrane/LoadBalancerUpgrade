@@ -18,21 +18,21 @@ namespace Azure.Network.LoadBalancer
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
 
-
-            // query all rows
-            var tableQuery = new TableQuery<UpdateLoadBalancerEntity>();
-            var result = await loadbalancerconfigTable.ExecuteQuerySegmentedAsync(tableQuery, null);
-
-            // Create the batch operation.
-            TableBatchOperation batchDeleteOperation = new TableBatchOperation();
-
-            foreach (var row in result)
+            TableQuerySegment<UpdateLoadBalancerEntity> segment = null;
+            TableBatchOperation batchOperation = new TableBatchOperation();
+            log.LogInformation($"Deleting all resources for {loadbalancerconfigTable.Name}");
+            while (segment == null || segment.ContinuationToken != null)
             {
-                batchDeleteOperation.Delete(row);
+                segment = await loadbalancerconfigTable.ExecuteQuerySegmentedAsync(new TableQuery<UpdateLoadBalancerEntity>().Take(500), segment?.ContinuationToken);
+                Parallel.ForEach(segment.Results, async entity =>
+                    {
+                        await loadbalancerconfigTable.ExecuteAsync(TableOperation.Delete(entity));
+                    });
             }
-
-            // Execute the batch operation.
-            await loadbalancerconfigTable.ExecuteBatchAsync(batchDeleteOperation);
+            if (batchOperation.Count > 0)
+            {
+                await loadbalancerconfigTable.ExecuteBatchAsync(batchOperation);
+            }
 
             //Get Token
             string token = AuthHelper.GetTokenAsync().Result;
